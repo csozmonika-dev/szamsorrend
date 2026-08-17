@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Számok Rendező Feladat (Javított Validációval)</title>
+    <style>
+        :root {
+            --primary-green: #388e3c;
+            --light-green: #c8e6c9;
+            --dark-gray: #424242;
+            --mid-gray: #9e9e9e;
+            --light-gray: #f5f5f5;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark-gray);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .app-container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--primary-green);
+            border-bottom: 2px solid var(--mid-gray);
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid var(--mid-gray);
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2e7d32;
+        }
+
+        .zones-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .pool-container {
+            min-height: 80px;
+            padding: 15px;
+            background-color: var(--light-gray);
+            border: 2px dashed var(--mid-gray);
+            border-radius: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .target-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .drop-zone {
+            width: 60px;
+            height: 60px;
+            background-color: #ffffff;
+            border: 2px solid var(--mid-gray);
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+
+        .drop-zone.drag-over {
+            background-color: var(--light-green);
+            border-color: var(--primary-green);
+        }
+
+        .draggable-item {
+            width: 50px;
+            height: 50px;
+            background-color: var(--mid-gray);
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 4px;
+            cursor: grab;
+            user-select: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .feedback.error {
+            display: block;
+            background-color: #ffcdd2;
+            color: #c62828;
+            border: 1px solid #c62828;
+        }
+        
+        .correct-sequence {
+            margin-top: 10px;
+            font-family: monospace;
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #c62828;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <h2>Számok rendezése szigorúan monoton növekvő sorrendbe</h2>
+        
+        <div class="controls">
+            <div class="input-group">
+                <label for="min-val">Minimum:</label>
+                <input type="number" id="min-val" value="1">
+            </div>
+            <div class="input-group">
+                <label for="max-val">Maximum:</label>
+                <input type="number" id="max-val" value="100">
+            </div>
+            <button onclick="generateNumbers()">Számok Generálása</button>
+        </div>
+
+        <div class="zones-wrapper">
+            <div class="pool-container" id="source-pool" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <!-- Generált számok helye -->
+            </div>
+
+            <div class="target-container" id="target-slots">
+                <!-- 10 üres mező helye (JS generálja) -->
+            </div>
+        </div>
+
+        <div class="controls" style="margin-top: 30px;">
+            <button onclick="checkOrder()">Ellenőrzés</button>
+        </div>
+
+        <div id="feedback" class="feedback"></div>
+    </div>
+
+    <script>
+        const ITEM_COUNT = 10;
+        let generatedNumbers = []; // Globális tömb a generált számok tárolására
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const targetContainer = document.getElementById('target-slots');
+            for (let i = 0; i < ITEM_COUNT; i++) {
+                const zone = document.createElement('div');
+                zone.className = 'drop-zone';
+                zone.setAttribute('ondrop', 'drop(event)');
+                zone.setAttribute('ondragover', 'allowDrop(event)');
+                zone.setAttribute('ondragenter', 'dragEnter(event)');
+                zone.setAttribute('ondragleave', 'dragLeave(event)');
+                targetContainer.appendChild(zone);
+            }
+        });
+
+        function generateNumbers() {
+            const minInput = parseInt(document.getElementById('min-val').value);
+            const maxInput = parseInt(document.getElementById('max-val').value);
+            const feedback = document.getElementById('feedback');
+            
+            // Relációs ellenőrzés
+            if (isNaN(minInput) || isNaN(maxInput) || minInput >= maxInput) {
+                showError('Kritikus hiba: A minimum értéknek szigorúan kisebbnek kell lennie a maximum értéknél.');
+                return;
+            }
+
+            // Kapacitásvizsgálat
+            if (maxInput - minInput + 1 < ITEM_COUNT) {
+                showError(`Algoritmikus hiba: A [${minInput}, ${maxInput}] intervallum nem tartalmaz elegendő egyedi egész számot 10 eltérő elem generálásához. Kérem, bővítse a tartományt!`);
+                return;
+            }
+
+            feedback.style.display = 'none';
+
+            const pool = document.getElementById('source-pool');
+            pool.innerHTML = ''; 
+
+            const dropZones = document.querySelectorAll('.drop-zone');
+            dropZones.forEach(zone => zone.innerHTML = '');
+
+            let uniqueNumbers = new Set();
+            while (uniqueNumbers.size < ITEM_COUNT) {
+                const num = Math.floor(Math.random() * (maxInput - minInput + 1)) + minInput;
+                uniqueNumbers.add(num);
+            }
+
+            generatedNumbers = Array.from(uniqueNumbers);
+
+            generatedNumbers.forEach((num, index) => {
+                const div = document.createElement('div');
+                div.className = 'draggable-item';
+                div.draggable = true;
+                div.id = 'item-' + index;
+                div.textContent = num;
+                div.setAttribute('ondragstart', 'dragStart(event)');
+                pool.appendChild(div);
+            });
+        }
+
+        function showError(message, correctSequence = null) {
+            const feedback = document.getElementById('feedback');
+            // Eltávolítjuk az esetleges display: none in-line formázást
+            feedback.style.display = ''; 
+            feedback.className = 'feedback error';
+            
+            let htmlContent = `<div>${message}</div>`;
+            if (correctSequence) {
+                htmlContent += `<div class="correct-sequence">A helyes sorrend: ${correctSequence.join(', ')}</div>`;
+            }
+            
+            feedback.innerHTML = htmlContent;
+        }
+
+        // Drag and Drop eseménykezelők
+        function dragStart(event) {
+            event.dataTransfer.setData('text/plain', event.target.id);
+            setTimeout(() => { event.target.style.opacity = '0.5'; }, 0);
+        }
+
+        function allowDrop(event) {
+            if (event.target.classList.contains('drop-zone')) {
+                if (event.target.children.length === 0) {
+                    event.preventDefault();
+                }
+            } else if (event.target.id === 'source-pool') {
+                event.preventDefault();
+            }
+        }
+
+        function dragEnter(event) {
+            if (event.target.classList.contains('drop-zone') && event.target.children.length === 0) {
+                event.target.classList.add('drag-over');
+            }
+        }
+
+        function dragLeave(event) {
+            if (event.target.classList.contains('drop-zone')) {
+                event.target.classList.remove('drag-over');
+            }
+        }
+
+        function drop(event) {
+            event.preventDefault();
+            const data = event.dataTransfer.getData('text/plain');
+            const draggedElement = document.getElementById(data);
+            if(draggedElement) {
+                draggedElement.style.opacity = '1';
+            }
+
+            if (event.target.classList.contains('drop-zone')) {
+                event.target.classList.remove('drag-over');
+                if (event.target.children.length === 0) {
+                    event.target.appendChild(draggedElement);
+                }
+            } else if (event.target.id === 'source-pool') {
+                event.target.appendChild(draggedElement);
+            }
+        }
+
+        document.addEventListener('dragend', (event) => {
+            if (event.target.classList.contains('draggable-item')) {
+                event.target.style.opacity = '1';
+            }
+        });
+
+        // Logikai ellenőrzés
+        function checkOrder() {
+            const dropZones = document.querySelectorAll('.drop-zone');
+            const feedback = document.getElementById('feedback');
+            let values = [];
+
+            for (let i = 0; i < dropZones.length; i++) {
+                const zone = dropZones[i];
+                if (zone.children.length === 0) {
+                    showError('Hiba: Nem helyezte el az összes számot a mezőkben!');
+                    return;
+                }
+                values.push(parseInt(zone.children[0].textContent));
+            }
+
+            let isCorrect = true;
+            for (let i = 0; i < values.length - 1; i++) {
+                if (values[i] > values[i + 1]) {
+                    isCorrect = false;
+                    break;
+                }
+            }
+
+            if (isCorrect) {
+                feedback.style.display = 'none'; // Elrejtjük az esetleges korábbi hibaüzenetet
+                
+                // Felugró ablak natív alert segítségével
+                window.alert('Gratulálok! Kiváló munka, a sorrend matematikailag helyes!');
+            } else {
+                // Helyes sorrend kiszámítása (növekvő numerikus rendezés)
+                let correctOrder = [...values].sort((a, b) => a - b);
+                showError('Hibás logika. A számok nem növekvő sorrendben követik egymást.', correctOrder);
+            }
+        }
+    </script>
+</body>
+</html>
